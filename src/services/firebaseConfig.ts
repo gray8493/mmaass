@@ -1,12 +1,18 @@
 export const firebaseConfig = {
   apiKey:
-    process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDemoDummyApiKeyForExam1Config',
+    process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
+    'AIzaSyDNkGEfE2_8JNMDdBpoKtPax-CFhGvmTE4',
   authDomain:
-    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'exam1-task-manager.firebaseapp.com',
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'exam1-task-manager',
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ||
+    'task-manager-22a46.firebaseapp.com',
+  projectId:
+    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'task-manager-22a46',
   storageBucket:
-    process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'exam1-task-manager.appspot.com',
+    process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+    'task-manager-22a46.firebasestorage.app',
   messagingSenderId:
-    process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '123456789012',
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:123456789012:web:abcdef1234567890',
+    process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '132491488074',
+  appId:
+    process.env.EXPO_PUBLIC_FIREBASE_APP_ID ||
+    '1:132491488074:web:bdb72480d2789996e3afb3',
 };
