@@ -10,7 +10,10 @@ export interface Task {
   dueDate: string;
   createdAt: string;
   teamId?: string | null;
+  teamName?: string;
   assigneeId?: string | null;
+  assigneeName?: string;
+  createdBy?: string | null;
 }
 
 export type CreateTaskInput = Omit<Task, 'id' | 'createdAt'>;

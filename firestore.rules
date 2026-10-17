@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// Firestore Security Rules - Practical Exam 2
+// Yêu cầu: mọi thao tác đọc/ghi đều phải có người dùng đã đăng nhập.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Kiểm tra người dùng hiện tại có phải là thành viên của nhóm hay không.
+    function isTeamMember(teamId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/teamMembers/$(teamId + '_' + request.auth.uid));
+    }
+
+    // Hồ sơ người dùng
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // Nhóm
+    match /teams/{teamId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      // Tin nhắn chat (subcollection của nhóm) - chỉ thành viên của nhóm được truy cập
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && isTeamMember(teamId);
+        allow create: if isSignedIn()
+          && isTeamMember(teamId)
+          && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if isSignedIn() && resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    // Thành viên nhóm
+    match /teamMembers/{memberId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Công việc - chỉ người dùng đã đăng nhập mới được truy cập
+    match /tasks/{taskId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isSignedIn();
+    }
+  }
+}

@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTasks } from '../hooks/useTasks';
+import { useTeams } from '../hooks/useTeams';
+import { useAuth } from '../contexts/AuthContext';
 import { TaskCard } from '../components/TaskCard';
 import { TaskModal } from '../components/TaskModal';
 import { Task, CreateTaskInput } from '../types/task';
@@ -19,6 +21,10 @@ import { Task, CreateTaskInput } from '../types/task';
 const STATUS_FILTERS = ['All', 'To Do', 'In Progress', 'Done'];
 
 export const HomeScreen: React.FC = () => {
+  const { user } = useAuth();
+  const { teams } = useTeams(user?.id ?? null);
+  const teamIds = teams.map((t) => t.id);
+
   const {
     tasks,
     allTasksCount,
@@ -31,7 +37,7 @@ export const HomeScreen: React.FC = () => {
     addTask,
     editTask,
     removeTask,
-  } = useTasks();
+  } = useTasks(teamIds);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -58,16 +64,12 @@ export const HomeScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View style={styles.container}>
-        {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerTextWrapper}>
             <Text style={styles.appName}>📋 TaskFlow Manager</Text>
-            <Text style={styles.appSubtitle}>
-              Quản lý công việc thông minh với Firebase Firestore
-            </Text>
+            <Text style={styles.appSubtitle}>Xin chào, {user?.name || 'bạn'} 👋</Text>
           </View>
 
-          {/* Realtime Status Indicator */}
           <View style={styles.syncBadge}>
             <View
               style={[
@@ -81,13 +83,13 @@ export const HomeScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Action Button & Quick Stats */}
         <View style={styles.actionSection}>
           <View style={styles.statsSummary}>
             <Text style={styles.statsText}>
               Tổng số: <Text style={styles.statsCountHighlight}>{allTasksCount}</Text>{' '}
               công việc
             </Text>
+            <Text style={styles.statsSubText}>{teams.length} nhóm đang tham gia</Text>
           </View>
 
           <TouchableOpacity
@@ -99,7 +101,6 @@ export const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Filter Chips Bar */}
         <View style={styles.filterBar}>
           <FlatList
             horizontal
@@ -138,7 +139,6 @@ export const HomeScreen: React.FC = () => {
           />
         </View>
 
-        {/* Tasks List */}
         {loading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color="#2563eb" />
@@ -164,29 +164,38 @@ export const HomeScreen: React.FC = () => {
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyIcon}>📝</Text>
-                <Text style={styles.emptyTitle}>Chưa có công việc nào</Text>
-                <Text style={styles.emptySubtitle}>
-                  {filterStatus !== 'All'
-                    ? `Không có công việc nào ở trạng thái "${filterStatus}".`
-                    : 'Hãy bắt đầu tạo công việc đầu tiên để quản lý tiến độ hiệu quả!'}
+                <Text style={styles.emptyTitle}>
+                  {teams.length === 0
+                    ? 'Bạn chưa tham gia nhóm nào'
+                    : 'Chưa có công việc nào'}
                 </Text>
-                <TouchableOpacity
-                  style={styles.btnEmptyCreate}
-                  onPress={handleOpenCreateModal}
-                >
-                  <Text style={styles.btnEmptyCreateText}>Tạo công việc ngay</Text>
-                </TouchableOpacity>
+                <Text style={styles.emptySubtitle}>
+                  {teams.length === 0
+                    ? 'Hãy vào tab "Nhóm" để tạo nhóm mới hoặc tham gia nhóm bằng mã, sau đó tạo công việc cho nhóm.'
+                    : filterStatus !== 'All'
+                      ? `Không có công việc nào ở trạng thái "${filterStatus}".`
+                      : 'Hãy bắt đầu tạo công việc đầu tiên cho nhóm của bạn!'}
+                </Text>
+                {teams.length > 0 ? (
+                  <TouchableOpacity
+                    style={styles.btnEmptyCreate}
+                    onPress={handleOpenCreateModal}
+                  >
+                    <Text style={styles.btnEmptyCreateText}>Tạo công việc ngay</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             }
           />
         )}
 
-        {/* Modal Create / Edit */}
         <TaskModal
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSubmit={handleModalSubmit}
           initialTask={selectedTask}
+          teams={teams}
+          currentUser={user}
         />
       </View>
     </SafeAreaView>
@@ -262,6 +271,11 @@ const styles = StyleSheet.create({
   statsText: {
     fontSize: 13,
     color: '#64748b',
+  },
+  statsSubText: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
   },
   statsCountHighlight: {
     fontWeight: '700',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,14 +9,22 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Task, TaskPriority, TaskStatus, CreateTaskInput } from '../types/task';
+import { Team, TeamMember } from '../types/team';
+import { AppUser } from '../types/user';
+import { getTeamMembers } from '../services/teamService';
 
 interface TaskModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmit: (data: CreateTaskInput) => Promise<void> | void;
   initialTask?: Task | null;
+  teams: Team[];
+  members?: TeamMember[];
+  currentUser?: AppUser | null;
+  defaultTeamId?: string | null;
 }
 
 const STATUS_OPTIONS: TaskStatus[] = ['To Do', 'In Progress', 'Done'];
@@ -27,14 +35,27 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   onClose,
   onSubmit,
   initialTask,
+  teams,
+  members,
+  currentUser,
+  defaultTeamId,
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>('To Do');
   const [priority, setPriority] = useState<TaskPriority>('Medium');
   const [dueDate, setDueDate] = useState('');
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Giữ tham chiếu mới nhất tới danh sách nhóm để việc khởi tạo form không
+  // phụ thuộc vào việc mảng `teams` được tạo lại mỗi lần cha re-render.
+  const teamsRef = useRef(teams);
+  teamsRef.current = teams;
 
   useEffect(() => {
     if (initialTask) {
@@ -43,17 +64,50 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       setStatus(initialTask.status || 'To Do');
       setPriority(initialTask.priority || 'Medium');
       setDueDate(initialTask.dueDate || '');
+      setTeamId(initialTask.teamId ?? defaultTeamId ?? null);
+      setAssigneeId(initialTask.assigneeId ?? null);
     } else {
-      // Giá trị mặc định khi tạo mới
       const today = new Date().toISOString().split('T')[0];
       setTitle('');
       setDescription('');
       setStatus('To Do');
       setPriority('Medium');
       setDueDate(today);
+      setTeamId(defaultTeamId ?? teamsRef.current[0]?.id ?? null);
+      setAssigneeId(null);
     }
     setErrorMessage('');
-  }, [initialTask, visible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTask, visible, defaultTeamId]);
+
+  useEffect(() => {
+    let active = true;
+    if (!teamId) {
+      setTeamMembers([]);
+      return;
+    }
+
+    if (members && members.length > 0 && members[0].teamId === teamId) {
+      setTeamMembers(members);
+      return;
+    }
+
+    setLoadingMembers(true);
+    getTeamMembers(teamId)
+      .then((result) => {
+        if (active) setTeamMembers(result);
+      })
+      .catch(() => {
+        if (active) setTeamMembers([]);
+      })
+      .finally(() => {
+        if (active) setLoadingMembers(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [teamId, members]);
 
   const setRelativeDate = (days: number) => {
     const d = new Date();
@@ -61,10 +115,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     setDueDate(d.toISOString().split('T')[0]);
   };
 
+  const selectedTeam = teams.find((t) => t.id === teamId);
+  const selectedMember = teamMembers.find((m) => m.userId === assigneeId);
+
   const handleSave = async () => {
-    // Client-side validation: Tiêu đề không được để trống
     if (!title.trim()) {
       setErrorMessage('Vui lòng nhập tiêu đề cho công việc!');
+      return;
+    }
+    if (!teamId) {
+      setErrorMessage('Vui lòng chọn nhóm cho công việc. Hãy tạo nhóm trước.');
       return;
     }
 
@@ -77,10 +137,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         status,
         priority,
         dueDate: dueDate.trim(),
+        teamId,
+        teamName: selectedTeam?.name || '',
+        assigneeId,
+        assigneeName: selectedMember?.name || '',
+        createdBy: currentUser?.id ?? null,
       });
       onClose();
-    } catch (err: any) {
-      setErrorMessage('Đã có lỗi xảy ra khi lưu: ' + (err.message || 'Thử lại'));
+    } catch (err) {
+      setErrorMessage(
+        'Đã có lỗi xảy ra khi lưu: ' + ((err as Error).message || 'Thử lại')
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -98,7 +165,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         style={styles.modalOverlay}
       >
         <View style={styles.modalContent}>
-          {/* Header Modal */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>
               {initialTask ? '✏️ Chỉnh sửa công việc' : '✨ Tạo công việc mới'}
@@ -108,7 +174,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Form Scrollable */}
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.formScroll}
@@ -119,13 +184,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               </View>
             ) : null}
 
-            {/* Field Title */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>
                 Tiêu đề công việc <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={[styles.input, errorMessage ? styles.inputError : null]}
+                style={styles.input}
                 placeholder="Nhập tên việc cần làm..."
                 placeholderTextColor="#94a3b8"
                 value={title}
@@ -136,7 +200,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               />
             </View>
 
-            {/* Field Description */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Mô tả chi tiết</Text>
               <TextInput
@@ -151,7 +214,96 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               />
             </View>
 
-            {/* Status Select */}
+            {/* Nhóm (Team) */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>
+                Nhóm phụ trách <Text style={styles.required}>*</Text>
+              </Text>
+              {teams.length === 0 ? (
+                <Text style={styles.hintText}>
+                  Bạn chưa tham gia nhóm nào. Hãy tạo hoặc tham gia nhóm trước.
+                </Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.chipScroll}
+                >
+                  {teams.map((team) => {
+                    const selected = teamId === team.id;
+                    return (
+                      <TouchableOpacity
+                        key={team.id}
+                        style={[styles.chip, selected && styles.chipActive]}
+                        onPress={() => {
+                          setTeamId(team.id);
+                          setAssigneeId(null);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[styles.chipText, selected && styles.chipTextActive]}
+                        >
+                          {team.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Người được giao việc (Assignee) */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Người được giao việc</Text>
+              {loadingMembers ? (
+                <ActivityIndicator color="#2563eb" size="small" />
+              ) : teamMembers.length === 0 ? (
+                <Text style={styles.hintText}>
+                  Chưa có thành viên nào trong nhóm để giao việc.
+                </Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.chipScroll}
+                >
+                  <TouchableOpacity
+                    style={[styles.chip, assigneeId === null && styles.chipActive]}
+                    onPress={() => setAssigneeId(null)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        assigneeId === null && styles.chipTextActive,
+                      ]}
+                    >
+                      Không giao
+                    </Text>
+                  </TouchableOpacity>
+                  {teamMembers.map((member) => {
+                    const selected = assigneeId === member.userId;
+                    return (
+                      <TouchableOpacity
+                        key={member.id}
+                        style={[styles.chip, selected && styles.chipActive]}
+                        onPress={() => setAssigneeId(member.userId)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[styles.chipText, selected && styles.chipTextActive]}
+                        >
+                          {member.name || member.email}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Status */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Trạng thái (Status)</Text>
               <View style={styles.chipRow}>
@@ -160,7 +312,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   return (
                     <TouchableOpacity
                       key={opt}
-                      style={[styles.chip, selected && styles.chipActive]}
+                      style={[
+                        styles.chip,
+                        styles.chipFlex,
+                        selected && styles.chipActive,
+                      ]}
                       onPress={() => setStatus(opt)}
                       activeOpacity={0.7}
                     >
@@ -173,7 +329,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               </View>
             </View>
 
-            {/* Priority Select */}
+            {/* Priority */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Độ ưu tiên (Priority)</Text>
               <View style={styles.chipRow}>
@@ -184,6 +340,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                       key={opt}
                       style={[
                         styles.chip,
+                        styles.chipFlex,
                         selected &&
                           (opt === 'High'
                             ? styles.chipHighActive
@@ -236,7 +393,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </View>
           </ScrollView>
 
-          {/* Footer Buttons */}
           <View style={styles.footer}>
             <TouchableOpacity
               style={styles.btnCancel}
@@ -272,7 +428,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '90%',
+    maxHeight: '92%',
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
@@ -329,6 +485,11 @@ const styles = StyleSheet.create({
   required: {
     color: '#ef4444',
   },
+  hintText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#cbd5e1',
@@ -339,27 +500,30 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     backgroundColor: '#f8fafc',
   },
-  inputError: {
-    borderColor: '#ef4444',
-    backgroundColor: '#fff5f5',
-  },
   textArea: {
     minHeight: 70,
     paddingTop: 10,
+  },
+  chipScroll: {
+    gap: 8,
+    paddingRight: 8,
   },
   chipRow: {
     flexDirection: 'row',
     gap: 8,
   },
   chip: {
-    flex: 1,
+    paddingHorizontal: 14,
     paddingVertical: 9,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  chipFlex: {
+    flex: 1,
   },
   chipActive: {
     backgroundColor: '#2563eb',

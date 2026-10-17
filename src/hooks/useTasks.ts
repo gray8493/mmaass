@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Task, CreateTaskInput, UpdateTaskInput, TaskStatus } from '../types/task';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Task, CreateTaskInput, UpdateTaskInput } from '../types/task';
 import {
   subscribeTasks,
   getTasks,
@@ -8,31 +8,47 @@ import {
   deleteTask as apiDeleteTask,
 } from '../services/taskService';
 
-export const useTasks = () => {
+export const useTasks = (teamIds: string[]) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [isRealtime, setIsRealtime] = useState<boolean>(false);
 
+  const key = teamIds.join(',');
+  const teamIdsRef = useRef(teamIds);
+  teamIdsRef.current = teamIds;
+
   useEffect(() => {
     setLoading(true);
-    const unsubscribe = subscribeTasks((fetchedTasks, realtimeStatus) => {
-      setTasks(fetchedTasks);
-      setIsRealtime(realtimeStatus);
-      setLoading(false);
-    });
+    const unsubscribe = subscribeTasks(
+      teamIdsRef.current,
+      (fetchedTasks) => {
+        setTasks(fetchedTasks);
+        setIsRealtime(true);
+        setLoading(false);
+      },
+      () => {
+        setIsRealtime(false);
+        setLoading(false);
+      }
+    );
 
     return () => {
       unsubscribe();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   const refreshTasks = useCallback(async () => {
     setRefreshing(true);
-    const { tasks: fetchedTasks, isRealtime: realtimeStatus } = await getTasks();
-    setTasks(fetchedTasks);
-    setIsRealtime(realtimeStatus);
+    try {
+      const fetchedTasks = await getTasks(teamIdsRef.current);
+      setTasks(fetchedTasks);
+      setIsRealtime(true);
+    } catch (error) {
+      setIsRealtime(false);
+    }
     setRefreshing(false);
   }, []);
 

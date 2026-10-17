@@ -1,17 +1,12 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, Platform } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeScreen } from '../screens/HomeScreen';
 import { TeamsScreen } from '../screens/TeamsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { AppTabParamList } from './types';
 
-export type RootTabParamList = {
-  Home: undefined;
-  Teams: undefined;
-  Profile: undefined;
-};
-
-const Tab = createBottomTabNavigator<RootTabParamList>();
+const Tab = createBottomTabNavigator<AppTabParamList>();
 
 export const BottomTabNavigator: React.FC = () => {
   return (

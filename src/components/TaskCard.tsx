@@ -105,6 +105,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete }) =>
         </Text>
       ) : null}
 
+      {/* Team & Assignee */}
+      {task.teamName || task.assigneeName ? (
+        <View style={styles.metaRow}>
+          {task.teamName ? (
+            <View style={styles.metaPill}>
+              <Text style={styles.metaText}>👥 {task.teamName}</Text>
+            </View>
+          ) : null}
+          {task.assigneeName ? (
+            <View style={[styles.metaPill, styles.assigneePill]}>
+              <Text style={[styles.metaText, styles.assigneeText]}>
+                🎯 {task.assigneeName}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Due Date & Action Buttons */}
       <View style={styles.footerRow}>
         <View style={styles.dateContainer}>
@@ -193,6 +211,29 @@ const styles = StyleSheet.create({
     color: '#475569',
     lineHeight: 18,
     marginBottom: 12,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  metaPill: {
+    backgroundColor: '#eef2ff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  assigneePill: {
+    backgroundColor: '#ecfdf5',
+  },
+  metaText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4338ca',
+  },
+  assigneeText: {
+    color: '#047857',
   },
   footerRow: {
     flexDirection: 'row',

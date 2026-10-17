@@ -1,12 +1,9 @@
 export const firebaseConfig = {
   apiKey:
-    process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
-    'AIzaSyDNkGEfE2_8JNMDdBpoKtPax-CFhGvmTE4',
+    process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDNkGEfE2_8JNMDdBpoKtPax-CFhGvmTE4',
   authDomain:
-    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ||
-    'task-manager-22a46.firebaseapp.com',
-  projectId:
-    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'task-manager-22a46',
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'task-manager-22a46.firebaseapp.com',
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'task-manager-22a46',
   storageBucket:
     process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ||
     'task-manager-22a46.firebasestorage.app',
